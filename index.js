@@ -1,37 +1,42 @@
+// server.js
 const express = require("express");
 const bodyParser = require("body-parser");
 const pdf = require("html-pdf");
 const cors = require("cors");
 
-const pdfTemplate = require("./documents");
-
 const app = express();
+const port = process.env.PORT || 5000;
 
-app.use(cors());
-app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use(cors());
 
-app.post("/create-pdf", (req, res) => {
-  return new Promise((resolve, reject) => {
-    pdf.create(pdfTemplate(req.body), {}).toFile("/result.pdf", (err) => {
-      if (err) {
-        console.error(err);
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  })
-    .then(() => {
-      res.send(Promise.resolve());
-    })
-    .catch((error) => {
-      res.status(500).send("Error generating PDF");
-    });
+app.post("/generate-pdf", (req, res) => {
+  const { name, role, date, phone, email } = req.body;
+
+  const html = `
+    <html>
+      <body>
+        <h1>Offer Letter</h1>
+        <p>Name: ${name}</p>
+        <p>Role: ${role}</p>
+        <p>Date of Joining: ${date}</p>
+        <p>Phone: ${phone}</p>
+        <p>Email: ${email}</p>
+      </body>
+    </html>
+  `;
+
+  pdf.create(html).toStream((err, stream) => {
+    if (err) return res.status(500).send("Error generating PDF");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=offer-letter.pdf"
+    );
+    stream.pipe(res);
+  });
 });
 
-app.get("/fetch-pdf", (req, res) => {
-  res.sendFile(`${__dirname}/result.pdf`);
+app.listen(port, () => {
+  console.log(`Server is running on port ${port}`);
 });
-
-app.listen(5000, () => console.log(`Listening on port 5000`));
